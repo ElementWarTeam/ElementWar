@@ -10,13 +10,26 @@ import SpriteKit
 
 class GameScene: SKScene {
 
-    let playerSprite = SKSpriteNode(imageNamed: "Player")
-    let movingControllerSprite = SKSpriteNode(imageNamed: "Cannon")
+    let Pi = CGFloat(M_PI)
+    let PlayerMissileSpeed: CGFloat = 300
 
-    let movingControllerOriginPosition = CGPoint(x: 80, y: 80)
-    var touchLocation: CGPoint?
-    var playerLocation: CGPoint = CGPoint()
-    var movingDirection: CGFloat = 0.0
+    let playerSprite: SKSpriteNode? = SKSpriteNode(imageNamed: "Player")
+
+    let moveAnalogStick = AnalogJoystick(diameter: 110)
+    let rotateAnalogStick = AnalogJoystick(diameter: 100)
+
+    let missileShootSound = SKAction.playSoundFileNamed("Shoot.wav", waitForCompletion: false)
+
+    var isFirePressed = false
+
+    // Time of last update(currentTime:) call
+    var lastUpdateTime = NSTimeInterval(0)
+
+    // Seconds elapsed since last action
+    var timeSinceLastAction = NSTimeInterval(0)
+
+    // Seconds before performing next action. Choose a default value
+    var timeUntilNextAction = NSTimeInterval(0.7)
 
     override func didMoveToView(view: SKView) {
         /* Setup your scene here */
@@ -30,59 +43,73 @@ class GameScene: SKScene {
         // set scene size to match view
         size = view.bounds.size
         backgroundColor = SKColor(red: 94.0 / 255, green: 63.0 / 255, blue: 107.0 / 255, alpha: 1)
-        playerSprite.position = CGPoint(x: size.width - 50, y: 60)
-        movingControllerSprite.position = movingControllerOriginPosition
-        addChild(playerSprite)
-        addChild(movingControllerSprite)
-    }
-
-    override func touchesBegan(touches: Set<UITouch>, withEvent event: UIEvent?) {
-        /* Called when a touch begins */
-
-//        for touch in touches {
-//            let location = touch.locationInNode(self)
-//
-//            let sprite = SKSpriteNode(imageNamed: "Spaceship")
-//
-//            sprite.xScale = 0.5
-//            sprite.yScale = 0.5
-//            sprite.position = location
-//
-//            let action = SKAction.rotateByAngle(CGFloat(M_PI), duration: 1)
-//
-//            sprite.runAction(SKAction.repeatActionForever(action))
-//
-//            self.addChild(sprite)
-//        }
-
-        if let touch = touches.first {
-            let touchLocation = touch.locationInNode(self)
-            if(movingControllerSprite.containsPoint(touchLocation)){
-                self.touchLocation = touchLocation
-            }else{
-                self.touchLocation = nil
-            }
-
+        if let playerSprite = self.playerSprite {
+            playerSprite.position = CGPoint(x: self.frame.maxX / 2, y: self.frame.maxY / 2)
+            addChild(playerSprite)
         }
-        super.touchesBegan(touches, withEvent: event)
+
+        // add joySticker
+        moveAnalogStick.position = CGPoint(x: moveAnalogStick.radius + 15, y: moveAnalogStick.radius + 15)
+        addChild(moveAnalogStick)
+
+        rotateAnalogStick.position = CGPoint(x: self.frame.maxX - rotateAnalogStick.radius - 15, y: rotateAnalogStick.radius + 15)
+        addChild(rotateAnalogStick)
+
+        // set up joySticker
+        moveAnalogStick.startHandler = { }
+        moveAnalogStick.stopHandler = { }
+        moveAnalogStick.trackingHandler = { [unowned self] data in
+
+            guard let aN = self.playerSprite else { return }
+            let scale: CGFloat = 0.04
+            aN.position = CGPointMake(aN.position.x + (data.velocity.x * scale), aN.position.y + (data.velocity.y * scale))
+        }
+
+        rotateAnalogStick.startHandler = { [unowned self] _ in
+            self.isFirePressed = true
+        }
+        rotateAnalogStick.trackingHandler = { [unowned self] jData in
+            print("trackingHandler")
+            self.playerSprite?.zRotation = jData.angular
+        }
+
+        rotateAnalogStick.stopHandler = { [unowned self] _ in
+            self.isFirePressed = false
+        }
+
     }
 
-    override func touchesMoved(touches: Set<UITouch>, withEvent event: UIEvent?) {
-        if let touch = touches.first, let touchLocation = self.touchLocation {
-            let moveTolocation = touch.locationInNode(self)
-            let hypo = hypot(moveTolocation.x - touchLocation.x - touchLocation.x, moveTolocation.y - touchLocation.y)
-            let speed: CGFloat = 10
-            playerSprite.position.x += speed * (moveTolocation.x - touchLocation.x) / hypo
-            playerSprite.position.y += speed * (moveTolocation.y - touchLocation.y) / hypo
-            movingControllerSprite.position = moveTolocation
+    func shootMissle(fromNode node: SKNode) {
+        let playerMissileSprite = SKSpriteNode(imageNamed: "PlayerMissile")
+        playerMissileSprite.zRotation = node.zRotation
+        playerMissileSprite.position = node.position
+        self.addChild(playerMissileSprite)
+
+        let travelDistance: CGFloat = 1000
+        let action = SKAction.moveTo(
+            CGPointMake(
+                travelDistance * cos(playerMissileSprite.zRotation + self.Pi / 2.0) + playerMissileSprite.position.x,
+                travelDistance * sin(playerMissileSprite.zRotation + self.Pi / 2.0) + playerMissileSprite.position.y
+            ),
+            duration: 6)
+
+        playerMissileSprite.runAction(SKAction.sequence([self.missileShootSound, action])) {
+            playerMissileSprite.hidden = true
         }
-    }
-    
-    override func touchesEnded(touches: Set<UITouch>, withEvent event: UIEvent?) {
-        movingControllerSprite.position = movingControllerOriginPosition
     }
 
     override func update(currentTime: CFTimeInterval) {
-        /* Called before each frame is rendered */
+
+        let delta = currentTime - lastUpdateTime
+        lastUpdateTime = currentTime
+
+        timeSinceLastAction += delta
+
+        if let playerSprite = self.playerSprite
+        where timeSinceLastAction >= timeUntilNextAction && isFirePressed {
+            shootMissle(fromNode: playerSprite)
+            timeSinceLastAction = NSTimeInterval(0)
+        }
+
     }
 }
