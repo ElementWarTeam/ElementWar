@@ -19,24 +19,35 @@ enum ImageNameKey: String {
     case SubSticker = "SubSticker"
 }
 
+enum NodeName: String {
+    case kWorld = "world"
+    case kCamera = "camera"
+    case kOverlay = "overlay"
+    case kElementName = "element"
+    case kObstacleName = "obstacle"
+    case kBulletName = "bullet"
+}
+
+enum ContactType: UInt32 {
+    case Bullet = 1
+    case Element = 2
+    case Obstacle = 4
+    case WorldBoundary = 8
+    case SceneBoundary = 16
+    case OtherElement = 32
+}
+
+enum ZPositions: Float {
+    case WorldBackgound = -100
+    case WorldElement = 0
+    case Overlay = 100
+}
+
 class GameScene: SKScene, SKPhysicsContactDelegate {
 
     let Pi = CGFloat(M_PI)
     let PlayerMissileSpeed: CGFloat = 300
-
-    let kWorld = "world"
-    let kCamera = "camera"
-    let kOverlay = "overlay"
-    let kElementName = "element"
-    let kObstacleName = "obstacle"
-    let kBulletName = "bullet"
-
-    let kObstacleCategory: UInt32 = 0x1 << 0
-    let kBulletCategory: UInt32 = 0x1 << 1
-    let kElementCategory: UInt32 = 0x1 << 2
-    let kSceneEdgeCategory: UInt32 = 0x1 << 3
-    let kOtherElementCategory: UInt32 = 0x1 << 4
-    let kWorldBoundaryCategory: UInt32 = 0x1 << 5
+    let GridRows = 10
 
     // Flag indicating whether we've setup the camera system yet.
     var isCreated: Bool = false
@@ -73,24 +84,25 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     func setupScene() {
         if !isCreated {
             isCreated = true
+            self.physicsWorld.gravity = CGVectorMake(0, 0);
+            self.physicsWorld.contactDelegate = self
 
             self.anchorPoint = CGPointMake(0.5, 0.5)
 
             // Camera setup
             self.anchorPoint = CGPoint(x: 0.5, y: 0.5)
-            self.world = SKNode()
-            self.world?.name = kWorld
+            self.world = makeWorld()
             addChild(self.world!)
 
             let cam = SKCameraNode() // initialize and assign an instance of SKCameraNode to the cam variable.
             self.camera = cam
-            self.camera?.name = kCamera
+            self.camera?.name = NodeName.kCamera.rawValue
             self.world?.addChild(cam)
 
             // UI setup
             self.overlay = SKNode()
             self.overlay?.zPosition = 10
-            self.overlay?.name = kOverlay
+            self.overlay?.name = NodeName.kOverlay.rawValue
             addChild(self.overlay!)
         }
     }
@@ -98,21 +110,9 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     override func didMoveToView(view: SKView) {
         setupScene()
         guard isCreated else { return }
-
-        self.physicsWorld.contactDelegate = self
-//        world?.physicsBody = SKPhysicsBody(edgeLoopFromRect: view.frame)
-        world?.physicsBody?.dynamic = false
-        world?.physicsBody?.affectedByGravity = false
-        world?.physicsBody?.categoryBitMask = kWorldBoundaryCategory;
-
         // set scene size to match view
         size = view.bounds.size
         backgroundColor = SKColor(red: 250.0 / 255, green: 250.0 / 255, blue: 245.0 / 255, alpha: 0.5)
-
-        let grid = Grid(blockSize: 40.0, rows: 100, cols: 100)
-        grid.anchorPoint = CGPointMake(0.5, 0.5)
-        grid.zPosition = -100
-        world?.addChild(grid)
 
         // TODO: add player
         self.playerElement = makeElement()
@@ -143,27 +143,6 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
 
     func cameraOnNode(node: SKNode) {
         self.camera?.position = node.position
-    }
-
-    func shootMissle(fromNode node: SKSpriteNode) {
-        let bullet = makeBullet()
-        let angle = node.zRotation + self.Pi / 2.0
-        let shootInitDistance: CGFloat = 60
-        world?.addChild(bullet)
-        bullet.zRotation = node.zRotation
-        bullet.position = CGPointMake(node.center.x + shootInitDistance * cos(angle), node.center.y + shootInitDistance * sin(angle))
-
-        let travelDistance: CGFloat = 1000
-        let action = SKAction.moveTo(
-            CGPointMake(
-                travelDistance * cos(angle) + bullet.position.x,
-                travelDistance * sin(angle) + bullet.position.y
-            ),
-            duration: 6)
-
-        bullet.runAction(SKAction.sequence([self.missileShootSound, action])) {
-            bullet.hidden = true
-        }
     }
 
     override func touchesBegan(touches: Set<UITouch>, withEvent event: UIEvent?) {
@@ -200,12 +179,13 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     // MARK: Create basic sprite
 
     func setupControllers() {
-        // add joySticker
 
-        moveAnalogStick.position = CGPoint(x: self.frame.minX + moveAnalogStick.radius + 15, y: self.frame.minY + moveAnalogStick.radius + 15)
+        // add joySticker
+        let margin: CGFloat = 20
+        moveAnalogStick.position = CGPoint(x: self.frame.minX + moveAnalogStick.radius + margin, y: self.frame.minY + moveAnalogStick.radius + margin)
         overlay?.addChild(moveAnalogStick)
 
-        rotateAnalogStick.position = CGPoint(x: self.frame.maxX - rotateAnalogStick.radius - 15, y: self.frame.minY + rotateAnalogStick.radius + 15)
+        rotateAnalogStick.position = CGPoint(x: self.frame.maxX - rotateAnalogStick.radius - margin, y: self.frame.minY + rotateAnalogStick.radius + margin)
         overlay?.addChild(rotateAnalogStick)
 
         // set up joySticker
@@ -241,36 +221,54 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         }
     }
 
+    func makeWorld() -> SKNode {
+        let grid = Grid(blockSize: 40.0, rows: GridRows, cols: GridRows)
+        grid.anchorPoint = CGPointMake(0.5, 0.5)
+        grid.zPosition = CGFloat(ZPositions.WorldBackgound.rawValue)
+
+        let world = SKSpriteNode()
+        world.name = NodeName.kWorld.rawValue
+        world.physicsBody = SKPhysicsBody(edgeLoopFromRect: grid.frame)
+        world.physicsBody?.dynamic = true
+        world.physicsBody?.affectedByGravity = false
+        world.physicsBody?.categoryBitMask = ContactType.WorldBoundary.rawValue
+        world.physicsBody?.contactTestBitMask = ContactType.Element.rawValue | ContactType.Obstacle.rawValue | ContactType.WorldBoundary.rawValue
+        world.physicsBody?.collisionBitMask = ContactType.Element.rawValue | ContactType.Obstacle.rawValue | ContactType.WorldBoundary.rawValue
+        world.addChild(grid)
+        return world
+    }
+
     func makeElement() -> SKSpriteNode {
         let element = SKSpriteNode(imageNamed: ImageNameKey.FireElement.rawValue)
-        element.name = kElementName
-        element.physicsBody = SKPhysicsBody(rectangleOfSize: element.frame.size)
+        element.name = NodeName.kElementName.rawValue
+        element.physicsBody = SKPhysicsBody(rectangleOfSize: element.size)
         element.physicsBody?.affectedByGravity = false
-        element.physicsBody?.categoryBitMask = kElementCategory
-        element.physicsBody?.contactTestBitMask = kObstacleCategory
-        element.physicsBody?.collisionBitMask = kWorldBoundaryCategory
+        element.physicsBody?.categoryBitMask = ContactType.Element.rawValue
+        element.physicsBody?.contactTestBitMask = ContactType.Bullet.rawValue
+        element.physicsBody?.collisionBitMask = ContactType.Element.rawValue | ContactType.Obstacle.rawValue | ContactType.WorldBoundary.rawValue
         return element
     }
 
     func makeBullet() -> SKSpriteNode {
         let bullet = SKSpriteNode(imageNamed: ImageNameKey.FireBall.rawValue)
-        bullet.name = kBulletName
-        bullet.physicsBody = SKPhysicsBody(rectangleOfSize: bullet.frame.size)
+        bullet.name = NodeName.kBulletName.rawValue
+        bullet.physicsBody = SKPhysicsBody(circleOfRadius: bullet.size.width / 2)
         bullet.physicsBody?.affectedByGravity = false
-        bullet.physicsBody?.categoryBitMask = kBulletCategory
-        bullet.physicsBody?.contactTestBitMask = kObstacleCategory
-        bullet.physicsBody?.collisionBitMask = kWorldBoundaryCategory
+        bullet.physicsBody?.categoryBitMask = ContactType.Bullet.rawValue
+        bullet.physicsBody?.contactTestBitMask = ContactType.Element.rawValue | ContactType.Obstacle.rawValue | ContactType.WorldBoundary.rawValue
+        bullet.physicsBody?.collisionBitMask = 0x0
         return bullet
     }
 
     func makeObstacle() -> SKSpriteNode {
         let obstacle: SKSpriteNode = SKSpriteNode(imageNamed: ImageNameKey.DebugObstacle.rawValue)
-        obstacle.name = kObstacleName
-        obstacle.physicsBody = SKPhysicsBody(circleOfRadius: obstacle.frame.size.height / 2)
-        obstacle.physicsBody?.dynamic = false
-        obstacle.physicsBody?.categoryBitMask = kObstacleCategory
-        obstacle.physicsBody?.contactTestBitMask = 0x0
-        obstacle.physicsBody?.collisionBitMask = kWorldBoundaryCategory
+        obstacle.name = NodeName.kObstacleName.rawValue
+        obstacle.physicsBody = SKPhysicsBody(circleOfRadius: obstacle.size.height / 2)
+        obstacle.physicsBody?.dynamic = true
+        obstacle.physicsBody?.affectedByGravity = false
+        obstacle.physicsBody?.categoryBitMask = ContactType.Obstacle.rawValue
+        obstacle.physicsBody?.contactTestBitMask = ContactType.Obstacle.rawValue | ContactType.Element.rawValue | ContactType.WorldBoundary.rawValue
+        obstacle.physicsBody?.collisionBitMask = ContactType.Obstacle.rawValue | ContactType.Element.rawValue | ContactType.WorldBoundary.rawValue
         return obstacle
     }
 
@@ -281,41 +279,101 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
 
     func handleContact(contact: SKPhysicsContact) {
 
-        let categoryMask = contact.bodyA.categoryBitMask | contact.bodyB.categoryBitMask
-        let collisionMask = contact.bodyA.collisionBitMask | contact.bodyB.collisionBitMask
+        var bodyA: SKPhysicsBody
+        var bodyB: SKPhysicsBody
 
-        print(contact.bodyA.node?.name)
-        print(contact.bodyB.node?.name)
-
-        switch categoryMask {
-        case kObstacleCategory | kBulletCategory:
-            contact.bodyA.node?.removeFromParent()
-            contact.bodyB.node?.removeFromParent()
-            self.runAction(SKAction.sequence([self.hitSound]))
-            break
-        case kObstacleCategory | kElementCategory:
-            if contact.bodyA.categoryBitMask == kObstacleCategory {
-                contact.bodyA.node?.removeFromParent()
-            }
-            if contact.bodyB.categoryBitMask == kObstacleCategory {
-                contact.bodyB.node?.removeFromParent()
-            }
-            self.runAction(SKAction.sequence([self.collisionSound]))
-            break
-        case kWorldBoundaryCategory:
-            print("reach boundary")
-            break
-        default: break
-
+        if contact.bodyA.categoryBitMask < contact.bodyB.categoryBitMask {
+            bodyA = contact.bodyA
+            bodyB = contact.bodyB
+        } else {
+            bodyB = contact.bodyA
+            bodyA = contact.bodyB
         }
 
-        switch collisionMask {
-        case kWorldBoundaryCategory:
-            break
-        default: break
+        let categoryMask = bodyA.categoryBitMask | bodyB.categoryBitMask
 
+        let bulletHitObstacleMask = ContactType.Bullet.rawValue | ContactType.Obstacle.rawValue
+        let bulletHitElementMask = ContactType.Bullet.rawValue | ContactType.Element.rawValue
+        let bulletOverBoundaryMask = ContactType.Bullet.rawValue | ContactType.WorldBoundary.rawValue
+        let elementContactObstacleMask = ContactType.Element.rawValue | ContactType.Obstacle.rawValue
+        let elementContactElementMask = ContactType.Element.rawValue | ContactType.OtherElement.rawValue
+
+        if categoryMask & bulletHitObstacleMask == bulletHitObstacleMask {
+            if let bullet = bodyA.node as? SKSpriteNode,
+                let obstacle = bodyB.node as? SKSpriteNode {
+                    bulletHitObstacle(bullet, obstacle: obstacle)
+            }
         }
 
+        if categoryMask & bulletHitElementMask == bulletHitElementMask {
+            if let bullet = bodyA.node as? SKSpriteNode,
+                let element = bodyB.node as? SKSpriteNode {
+                    bulletHitElement(bullet, element: element)
+            }
+        }
+
+        if categoryMask & bulletOverBoundaryMask == bulletOverBoundaryMask {
+            bodyA.node?.removeFromParent()
+        }
+
+        if categoryMask & elementContactObstacleMask == elementContactObstacleMask {
+            if let element = bodyA.node as? SKSpriteNode,
+                let obstacle = bodyB.node as? SKSpriteNode {
+                    elementContactObstacle(element, obstacle: obstacle)
+            }
+        }
+
+        if categoryMask & elementContactElementMask == elementContactElementMask {
+            if let eA = bodyA.node as? SKSpriteNode,
+                let eB = bodyB.node as? SKSpriteNode {
+                    elementContactElement(eA, eB: eB)
+            }
+        }
+    }
+
+    // MARK: contact functions
+
+    func bulletHitObstacle(bullet: SKSpriteNode, obstacle: SKSpriteNode) {
+        bullet.removeFromParent()
+        obstacle.removeFromParent()
+        self.runAction(SKAction.sequence([self.hitSound]))
+    }
+
+    func bulletHitElement(bullet: SKSpriteNode, element: SKSpriteNode) {
+        // TODO
+        self.runAction(SKAction.sequence([self.hitSound]))
+    }
+
+    func elementContactObstacle(element: SKSpriteNode, obstacle: SKSpriteNode) {
+        // TODO
+        self.runAction(SKAction.sequence([self.collisionSound]))
+    }
+
+    func elementContactElement(eA: SKSpriteNode, eB: SKSpriteNode) {
+        // TODO
+    }
+
+    // MARK: Action functions
+
+    func shootMissle(fromNode node: SKSpriteNode) {
+        let bullet = makeBullet()
+        let angle = node.zRotation + self.Pi / 2.0
+        let shootInitDistance: CGFloat = 60
+        world?.addChild(bullet)
+        bullet.zRotation = node.zRotation
+        bullet.position = CGPointMake(node.center.x + shootInitDistance * cos(angle), node.center.y + shootInitDistance * sin(angle))
+
+        let travelDistance: CGFloat = 1000
+        let action = SKAction.moveTo(
+            CGPointMake(
+                travelDistance * cos(angle) + bullet.position.x,
+                travelDistance * sin(angle) + bullet.position.y
+            ),
+            duration: 6)
+
+        bullet.runAction(SKAction.sequence([self.missileShootSound, action])) {
+            bullet.hidden = true
+        }
     }
 
     func processContactsForUpdate(currentTime: CFTimeInterval) {
@@ -332,7 +390,7 @@ extension SKSpriteNode {
     var center: CGPoint {
         get {
             let frame = self.frame
-            return CGPointMake(frame.origin.x + frame.width/2, frame.origin.y + frame.height/2)
+            return CGPointMake(frame.origin.x + frame.width / 2, frame.origin.y + frame.height / 2)
         }
     }
 }
