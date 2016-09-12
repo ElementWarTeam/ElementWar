@@ -23,7 +23,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     let kSceneEdgeCategory: UInt32 = 0x1 << 3;
     let kInvaderFiredBulletCategory: UInt32 = 0x1 << 4;
 
-    let playerSprite: SKSpriteNode? = SKSpriteNode(imageNamed: "FireElement")
+    var playerElement: SKSpriteNode?
 
     let moveAnalogStick = AnalogJoystick(diameter: 100)
     let rotateAnalogStick = AnalogJoystick(diameter: 100)
@@ -53,13 +53,11 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         // set scene size to match view
         size = view.bounds.size
         backgroundColor = SKColor(red: 250.0 / 255, green: 250.0 / 255, blue: 245.0 / 255, alpha: 0.5)
-        if let playerSprite = self.playerSprite {
-            playerSprite.position = CGPoint(x: self.frame.maxX / 2, y: self.frame.maxY / 2)
-            playerSprite.name = kElementName
-            addChild(playerSprite)
-            playerSprite.physicsBody?.categoryBitMask = kShipCategory
-            playerSprite.physicsBody?.contactTestBitMask = 0x0
-            playerSprite.physicsBody?.collisionBitMask = kSceneEdgeCategory
+        self.playerElement = makeElement()
+        
+        // TODO: add player
+        if let element = playerElement {
+            addChild(element)
         }
 
         // add joySticker
@@ -84,7 +82,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         moveAnalogStick.stopHandler = { }
         moveAnalogStick.trackingHandler = { [unowned self] data in
 
-            guard let aN = self.playerSprite else { return }
+            guard let aN = self.playerElement else { return }
             let scale: CGFloat = 0.04
             aN.position = CGPointMake(aN.position.x + (data.velocity.x * scale), aN.position.y + (data.velocity.y * scale))
         }
@@ -94,7 +92,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         }
         rotateAnalogStick.trackingHandler = { [unowned self] jData in
             print("trackingHandler")
-            self.playerSprite?.zRotation = jData.angular
+            self.playerElement?.zRotation = jData.angular
         }
 
         rotateAnalogStick.stopHandler = { [unowned self] _ in
@@ -133,7 +131,34 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         }
     }
 
+    override func update(currentTime: CFTimeInterval) {
+
+        let delta = currentTime - lastUpdateTime
+        lastUpdateTime = currentTime
+
+        timeSinceLastAction += delta
+
+        if let playerElement = self.playerElement
+        where isFirePressed && timeSinceLastAction >= timeUntilNextAction {
+            shootMissle(fromNode: playerElement)
+            timeSinceLastAction = NSTimeInterval(0)
+        }
+
+        processContactsForUpdate(currentTime)
+
+    }
+
     // MARK: Create basic sprite
+
+    func makeElement() -> SKSpriteNode {
+        let element = SKSpriteNode(imageNamed: "FireElement")
+        element.position = CGPoint(x: self.frame.maxX / 2, y: self.frame.maxY / 2)
+        element.name = kElementName
+        element.physicsBody?.categoryBitMask = kShipCategory
+        element.physicsBody?.contactTestBitMask = 0x0
+        element.physicsBody?.collisionBitMask = kSceneEdgeCategory
+        return element
+    }
 
     func makeBullet() -> SKSpriteNode {
         let bullet = SKSpriteNode(imageNamed: "FireBall")
@@ -156,23 +181,6 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         obstacle.physicsBody?.contactTestBitMask = 0x0
         obstacle.physicsBody?.collisionBitMask = 0x0
         return obstacle
-    }
-
-    override func update(currentTime: CFTimeInterval) {
-
-        let delta = currentTime - lastUpdateTime
-        lastUpdateTime = currentTime
-
-        timeSinceLastAction += delta
-
-        if let playerSprite = self.playerSprite
-        where timeSinceLastAction >= timeUntilNextAction && isFirePressed {
-            shootMissle(fromNode: playerSprite)
-            timeSinceLastAction = NSTimeInterval(0)
-        }
-
-        processContactsForUpdate(currentTime)
-
     }
 
     // MARK: Contact
