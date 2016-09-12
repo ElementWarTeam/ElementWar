@@ -47,7 +47,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
 
     let Pi = CGFloat(M_PI)
     let PlayerMissileSpeed: CGFloat = 300
-    let GridRows = 10
+    let GridRows = 100
 
     // Flag indicating whether we've setup the camera system yet.
     var isCreated: Bool = false
@@ -149,7 +149,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         for touch in touches {
             if let world = self.world {
                 let location = touch.locationInNode(world)
-                if !moveAnalogStick.containsPoint(location) && !rotateAnalogStick.containsPoint(location) {
+                if !moveAnalogStick.containsPoint(location) && !rotateAnalogStick.containsPoint(location) && world.containsPoint(location) {
                     let obstacle = makeObstacle()
                     obstacle.position = location
                     world.addChild(obstacle)
