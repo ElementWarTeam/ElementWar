@@ -53,51 +53,19 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         // set scene size to match view
         size = view.bounds.size
         backgroundColor = SKColor(red: 250.0 / 255, green: 250.0 / 255, blue: 245.0 / 255, alpha: 0.5)
-        self.playerElement = makeElement()
+        let bgImage = SKSpriteNode(imageNamed: "wallpaper.png")
+        self.addChild(bgImage)
+        bgImage.position = CGPointMake(self.size.width/2, self.size.height/2)
         
+        self.playerElement = makeElement()
+
         // TODO: add player
         if let element = playerElement {
             addChild(element)
         }
-
-        // add joySticker
-        moveAnalogStick.position = CGPoint(x: moveAnalogStick.radius + 15, y: moveAnalogStick.radius + 15)
-        addChild(moveAnalogStick)
-
-        rotateAnalogStick.position = CGPoint(x: self.frame.maxX - rotateAnalogStick.radius - 15, y: rotateAnalogStick.radius + 15)
-        addChild(rotateAnalogStick)
-
-        // set up joySticker
-        moveAnalogStick.stick.image = UIImage(named: "Sticker")
-        moveAnalogStick.substrate.image = UIImage(named: "SubSticker")
-        rotateAnalogStick.stick.image = UIImage(named: "Sticker")
-        rotateAnalogStick.substrate.image = UIImage(named: "SubSticker")
-
-        moveAnalogStick.stick.color = SKColor.clearColor()
-        moveAnalogStick.substrate.color = SKColor.clearColor()
-        rotateAnalogStick.stick.color = SKColor.clearColor()
-        rotateAnalogStick.substrate.color = SKColor.clearColor()
-
-        moveAnalogStick.startHandler = { }
-        moveAnalogStick.stopHandler = { }
-        moveAnalogStick.trackingHandler = { [unowned self] data in
-
-            guard let aN = self.playerElement else { return }
-            let scale: CGFloat = 0.04
-            aN.position = CGPointMake(aN.position.x + (data.velocity.x * scale), aN.position.y + (data.velocity.y * scale))
-        }
-
-        rotateAnalogStick.startHandler = { [unowned self] _ in
-            self.isFirePressed = true
-        }
-        rotateAnalogStick.trackingHandler = { [unowned self] jData in
-            print("trackingHandler")
-            self.playerElement?.zRotation = jData.angular
-        }
-
-        rotateAnalogStick.stopHandler = { [unowned self] _ in
-            self.isFirePressed = false
-        }
+        
+        // Add controllers
+        setupControllers()
 
     }
 
@@ -149,6 +117,46 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     // MARK: Create basic sprite
+
+    func setupControllers() {
+        // add joySticker
+        moveAnalogStick.position = CGPoint(x: moveAnalogStick.radius + 15, y: moveAnalogStick.radius + 15)
+        addChild(moveAnalogStick)
+
+        rotateAnalogStick.position = CGPoint(x: self.frame.maxX - rotateAnalogStick.radius - 15, y: rotateAnalogStick.radius + 15)
+        addChild(rotateAnalogStick)
+
+        // set up joySticker
+        moveAnalogStick.stick.image = UIImage(named: "Sticker")
+        moveAnalogStick.substrate.image = UIImage(named: "SubSticker")
+        rotateAnalogStick.stick.image = UIImage(named: "Sticker")
+        rotateAnalogStick.substrate.image = UIImage(named: "SubSticker")
+
+        moveAnalogStick.stick.color = SKColor.clearColor()
+        moveAnalogStick.substrate.color = SKColor.clearColor()
+        rotateAnalogStick.stick.color = SKColor.clearColor()
+        rotateAnalogStick.substrate.color = SKColor.clearColor()
+
+        moveAnalogStick.startHandler = { }
+        moveAnalogStick.stopHandler = { }
+        moveAnalogStick.trackingHandler = { [unowned self] data in
+
+            guard let aN = self.playerElement else { return }
+            let scale: CGFloat = 0.04
+            aN.position = CGPointMake(aN.position.x + (data.velocity.x * scale), aN.position.y + (data.velocity.y * scale))
+        }
+
+        rotateAnalogStick.startHandler = { [unowned self] _ in
+            self.isFirePressed = true
+        }
+        rotateAnalogStick.trackingHandler = { [unowned self] jData in
+            self.playerElement?.zRotation = jData.angular
+        }
+
+        rotateAnalogStick.stopHandler = { [unowned self] _ in
+            self.isFirePressed = false
+        }
+    }
 
     func makeElement() -> SKSpriteNode {
         let element = SKSpriteNode(imageNamed: "FireElement")
