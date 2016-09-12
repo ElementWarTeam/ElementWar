@@ -149,7 +149,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         for touch in touches {
             if let world = self.world {
                 let location = touch.locationInNode(world)
-                if !moveAnalogStick.containsPoint(location) && !rotateAnalogStick.containsPoint(location) && world.containsPoint(location) {
+                if !moveAnalogStick.containsPoint(location) && !rotateAnalogStick.containsPoint(location) {
                     let obstacle = makeObstacle()
                     obstacle.position = location
                     world.addChild(obstacle)
