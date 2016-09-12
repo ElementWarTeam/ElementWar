@@ -53,6 +53,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     let rotateAnalogStick = AnalogJoystick(diameter: 100)
 
     let missileShootSound = SKAction.playSoundFileNamed("Shoot.wav", waitForCompletion: false)
+    let collisionSound = SKAction.playSoundFileNamed("Collision", waitForCompletion: false)
+    let hitSound = SKAction.playSoundFileNamed("Hit", waitForCompletion: false)
 
     var isFirePressed = false
 
@@ -211,7 +213,6 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         moveAnalogStick.substrate.image = UIImage(named: ImageNameKey.SubSticker.rawValue)
         rotateAnalogStick.stick.image = UIImage(named: ImageNameKey.Sticker.rawValue)
         rotateAnalogStick.substrate.image = UIImage(named: ImageNameKey.SubSticker.rawValue)
-        rotateAnalogStick.zRotation = Pi / 4
 
         moveAnalogStick.stick.color = SKColor.clearColor()
         moveAnalogStick.substrate.color = SKColor.clearColor()
@@ -243,8 +244,10 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     func makeElement() -> SKSpriteNode {
         let element = SKSpriteNode(imageNamed: ImageNameKey.FireElement.rawValue)
         element.name = kElementName
+        element.physicsBody = SKPhysicsBody(rectangleOfSize: element.frame.size)
+        element.physicsBody?.affectedByGravity = false
         element.physicsBody?.categoryBitMask = kElementCategory
-        element.physicsBody?.contactTestBitMask = 0x0
+        element.physicsBody?.contactTestBitMask = kObstacleCategory
         element.physicsBody?.collisionBitMask = kWorldBoundaryCategory
         return element
     }
@@ -288,6 +291,16 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         case kObstacleCategory | kBulletCategory:
             contact.bodyA.node?.removeFromParent()
             contact.bodyB.node?.removeFromParent()
+            self.runAction(SKAction.sequence([self.hitSound]))
+            break
+        case kObstacleCategory | kElementCategory:
+            if contact.bodyA.categoryBitMask == kObstacleCategory {
+                contact.bodyA.node?.removeFromParent()
+            }
+            if contact.bodyB.categoryBitMask == kObstacleCategory {
+                contact.bodyB.node?.removeFromParent()
+            }
+            self.runAction(SKAction.sequence([self.collisionSound]))
             break
         case kWorldBoundaryCategory:
             print("reach boundary")
