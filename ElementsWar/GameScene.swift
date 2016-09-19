@@ -21,6 +21,7 @@ enum ImageNameKey: String {
 
 enum NodeName: String {
     case kWorld = "world"
+    case kBackground = "background"
     case kCamera = "camera"
     case kOverlay = "overlay"
     case kElementName = "element"
@@ -47,7 +48,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
 
     let Pi = CGFloat(M_PI)
     let PlayerMissileSpeed: CGFloat = 300
-    let GridRows = 100
+    let GridRows = 20
 
     // Flag indicating whether we've setup the camera system yet.
     var isCreated: Bool = false
@@ -142,7 +143,27 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     func cameraOnNode(node: SKNode) {
-        self.camera?.position = node.position
+        let xaisMargin: Float = Float(size.width) / 2.0
+        let yaisMargin: Float = Float(size.height) / 2.0
+        if let world = self.world, grid = world.childNodeWithName(NodeName.kBackground.rawValue), camera = self.camera {
+            let nodePosition = node.position
+
+            print("position: \(nodePosition)")
+            print("position: \(size)")
+
+            let leftDistanceToMargin = abs(Float(grid.frame.minX.distanceTo(nodePosition.x)))
+            let rightDistanceToMargin = abs(Float(grid.frame.maxX.distanceTo(nodePosition.x)))
+            let buttomDistanceToMargin = abs(Float(grid.frame.minY.distanceTo(nodePosition.y)))
+            let topDistanceToMargin = abs(Float(grid.frame.maxY.distanceTo(nodePosition.y)))
+
+            if leftDistanceToMargin > xaisMargin && rightDistanceToMargin > xaisMargin {
+                camera.position.x = nodePosition.x
+            }
+
+            if buttomDistanceToMargin > yaisMargin && topDistanceToMargin > yaisMargin {
+                camera.position.y = nodePosition.y
+            }
+        }
     }
 
     override func touchesBegan(touches: Set<UITouch>, withEvent event: UIEvent?) {
@@ -164,16 +185,24 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         let delta = currentTime - lastUpdateTime
         lastUpdateTime = currentTime
 
+        // Fire interval
         timeSinceLastAction += delta
-
         if let playerElement = self.playerElement
         where isFirePressed && timeSinceLastAction >= timeUntilNextAction {
             shootMissle(fromNode: playerElement)
             timeSinceLastAction = NSTimeInterval(0)
         }
 
+        // Handle contacts
         processContactsForUpdate(currentTime)
+    }
 
+    func processContactsForUpdate(currentTime: CFTimeInterval) {
+
+        for contact in contactQueue {
+            handleContact(contact)
+            contactQueue.removeFirst()
+        }
     }
 
     // MARK: Create basic sprite
@@ -223,6 +252,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
 
     func makeWorld() -> SKNode {
         let grid = Grid(blockSize: 40.0, rows: GridRows, cols: GridRows)
+        grid.name = NodeName.kBackground.rawValue
         grid.anchorPoint = CGPointMake(0.5, 0.5)
         grid.zPosition = CGFloat(ZPositions.WorldBackgound.rawValue)
 
@@ -373,14 +403,6 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
 
         bullet.runAction(SKAction.sequence([self.missileShootSound, action])) {
             bullet.hidden = true
-        }
-    }
-
-    func processContactsForUpdate(currentTime: CFTimeInterval) {
-
-        for contact in contactQueue {
-            handleContact(contact)
-            contactQueue.removeFirst()
         }
     }
 
