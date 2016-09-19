@@ -17,6 +17,8 @@
 		186E0EAE1D835F3E0095D090 /* Collision.wav in Resources */ = {isa = PBXBuildFile; fileRef = 186E0EAB1D835F3E0095D090 /* Collision.wav */; };
 		186E0EAF1D835F3E0095D090 /* Hit.wav in Resources */ = {isa = PBXBuildFile; fileRef = 186E0EAC1D835F3E0095D090 /* Hit.wav */; };
 		186E0EB01D835F3E0095D090 /* Shoot.wav in Resources */ = {isa = PBXBuildFile; fileRef = 186E0EAD1D835F3E0095D090 /* Shoot.wav */; };
+		186E0EB21D83D4A80095D090 /* AnalogJoystick.swift in Sources */ = {isa = PBXBuildFile; fileRef = 186E0EB11D83D4A80095D090 /* AnalogJoystick.swift */; };
+		186E0EB41D868D150095D090 /* Grid.swift in Sources */ = {isa = PBXBuildFile; fileRef = 186E0EB31D868D150095D090 /* Grid.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -32,6 +34,8 @@
 		186E0EAB1D835F3E0095D090 /* Collision.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = Collision.wav; sourceTree = "<group>"; };
 		186E0EAC1D835F3E0095D090 /* Hit.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = Hit.wav; sourceTree = "<group>"; };
 		186E0EAD1D835F3E0095D090 /* Shoot.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = Shoot.wav; sourceTree = "<group>"; };
+		186E0EB11D83D4A80095D090 /* AnalogJoystick.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AnalogJoystick.swift; sourceTree = "<group>"; };
+		186E0EB31D868D150095D090 /* Grid.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Grid.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -73,6 +77,8 @@
 				186E0EAA1D835F3E0095D090 /* Sounds */,
 				186E0E9F1D835E3B0095D090 /* LaunchScreen.storyboard */,
 				186E0EA21D835E3B0095D090 /* Info.plist */,
+				186E0EB11D83D4A80095D090 /* AnalogJoystick.swift */,
+				186E0EB31D868D150095D090 /* Grid.swift */,
 			);
 			path = ElementsWar;
 			sourceTree = "<group>";
@@ -163,7 +169,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				186E0E971D835E3B0095D090 /* GameScene.swift in Sources */,
+				186E0EB21D83D4A80095D090 /* AnalogJoystick.swift in Sources */,
 				186E0E991D835E3B0095D090 /* GameViewController.swift in Sources */,
+				186E0EB41D868D150095D090 /* Grid.swift in Sources */,
 				186E0E931D835E3B0095D090 /* AppDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -314,6 +322,7 @@
 				186E0EA71D835E3B0095D090 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
